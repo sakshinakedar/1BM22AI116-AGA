@@ -1,0 +1,37 @@
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
+import numpy as np
+import matplotlib.pyplot as plt
+(x_train, _), (x_test, _) = keras.datasets.mnist.load_data()
+x_train = x_train.astype("float32") / 255.0
+x_test = x_test.astype("float32") / 255.0
+x_train = np.reshape(x_train, (len(x_train), 28, 28, 1))
+x_test = np.reshape(x_test, (len(x_test), 28, 28, 1))
+
+input_img = keras.Input(shape=(28, 28, 1))
+
+x = layers.Flatten()(input_img)
+x = layers.Dense(128, activation="relu")(x)
+bottleneck = layers.Dense(32, activation="relu")(x)
+x = layers.Dense(128, activation="relu")(bottleneck)
+x = layers.Dense(28 * 28, activation="sigmoid")(x)
+output_img = layers.Reshape((28, 28, 1))(x)
+
+autoencoder = keras.Model(input_img, output_img)
+autoencoder.compile(optimizer="adam", loss="mse")
+
+autoencoder.fit(x_train, x_train, epochs=10, batch_size=256, validation_data=(x_test, x_test))
+
+reconstruction_loss = autoencoder.evaluate(x_test, x_test)
+print(f"Reconstruction Loss: {reconstruction_loss}")
+
+decoded_imgs = autoencoder.predict(x_test[:10])
+
+fig, axes = plt.subplots(2, 10, figsize=(10, 2))
+for i in range(10):
+    axes[0, i].imshow(x_test[i].reshape(28, 28), cmap='gray')
+    axes[0, i].axis('off')
+    axes[1, i].imshow(decoded_imgs[i].reshape(28, 28), cmap='gray')
+    axes[1, i].axis('off')
+plt.show()
