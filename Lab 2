@@ -1,0 +1,59 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import tensorflow as tf
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D
+from tensorflow.keras.models import Model
+
+dataset_path = "C:/Users/Saanvi Hegde/celeba"
+img_size = (64, 64)
+batch_size = 16
+datagen = ImageDataGenerator(rescale=1.0/255.0)
+
+train_generator = datagen.flow_from_directory(
+    dataset_path,
+    target_size=img_size,
+    batch_size=batch_size,
+    class_mode=None
+)
+
+def add_noise(img_batch):
+    noise_factor = 0.3
+    noisy_batch = img_batch + noise_factor * np.random.normal(loc=0.0, scale=1.0, size=img_batch.shape)
+    return np.clip(noisy_batch, 0., 1.)
+def noisy_generator(train_gen):
+    for batch in train_gen:
+        yield (add_noise(batch), batch)
+train_noisy_gen = noisy_generator(train_generator)
+input_img = Input(shape=(64, 64, 3))
+x = Conv2D(64, (3, 3), activation='relu', padding='same')(input_img)
+x = MaxPooling2D((2, 2), padding='same')(x)
+x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
+encoded = MaxPooling2D((2, 2), padding='same')(x)
+x = Conv2D(64, (3, 3), activation='relu', padding='same')(encoded)
+x = UpSampling2D((2, 2))(x)
+x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
+x = UpSampling2D((2, 2))(x)
+decoded = Conv2D(3, (3, 3), activation='sigmoid', padding='same')(x)
+autoencoder = Model(input_img, decoded)
+autoencoder.compile(optimizer='adam', loss='binary_crossentropy')
+autoencoder.fit(train_noisy_gen,
+                steps_per_epoch=500,
+                epochs=10)
+sample_batch = next(train_generator)[:10]
+noisy_batch = add_noise(sample_batch)
+denoised_batch = autoencoder.predict(noisy_batch)
+n = 10
+plt.figure(figsize=(20, 6))
+for i in range(n):
+    ax = plt.subplot(3, n, i + 1)
+    plt.imshow(sample_batch[i])
+    plt.axis('off')
+    ax = plt.subplot(3, n, i + 1 + n)
+    plt.imshow(noisy_batch[i])
+    plt.axis('off')
+    ax = plt.subplot(3, n, i + 1 + 2 * n)
+    plt.imshow(denoised_batch[i])
+    plt.axis('off')
+
+plt.show()
