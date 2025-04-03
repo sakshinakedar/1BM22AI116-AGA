@@ -1,0 +1,45 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler, Binarizer
+from sklearn.neural_network import BernoulliRBM
+from sklearn.decomposition import PCA
+
+file_path = "wdbc.data"
+columns = ["ID", "Diagnosis"] + [f"Feature_{i}" for i in range(1, 31)]
+df = pd.read_csv(file_path, header=None, names=columns)
+
+df.drop("ID", axis=1, inplace=True)
+
+label_encoder = LabelEncoder()
+df["Diagnosis"] = label_encoder.fit_transform(df["Diagnosis"])
+
+X = df.drop("Diagnosis", axis=1).values
+y = df["Diagnosis"].values
+
+scaler = MinMaxScaler()
+X_scaled = scaler.fit_transform(X)
+
+binarizer = Binarizer(threshold=0.5)
+X_binary = binarizer.fit_transform(X_scaled)
+
+rbm1 = BernoulliRBM(n_components=20, learning_rate=0.1, n_iter=10, random_state=42)
+rbm2 = BernoulliRBM(n_components=10, learning_rate=0.1, n_iter=10, random_state=42)
+
+X_rbm1 = rbm1.fit_transform(X_binary)
+X_rbm2 = rbm2.fit_transform(X_rbm1)
+
+pca = PCA(n_components=2)
+X_pca = pca.fit_transform(X_rbm2)
+y_pred = clf.predict(X_test)
+accuracy = accuracy_score(y_test, y_pred)
+
+print(f"Stacked RBM Classification Accuracy: {accuracy:.4f}")
+
+plt.figure(figsize=(8,6))
+plt.scatter(X_pca[:,0], X_pca[:,1], c=y, cmap="coolwarm", alpha=0.7)
+plt.colorbar(label="Malignant (1) / Benign (0)")
+plt.xlabel("PCA Feature 1")
+plt.ylabel("PCA Feature 2")
+plt.title("Stacked RBM Feature Representation (PCA)")
+plt.show()
