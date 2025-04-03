@@ -4,30 +4,24 @@ from tensorflow.keras import layers, models
 import tensorflow_datasets as tfds
 import matplotlib.pyplot as plt
 
-# 🔹 Load CIFAR-10 dataset
 dataset, info = tfds.load('cifar10', with_info=True, as_supervised=True)
 train_data, test_data = dataset['train'], dataset['test']
 
-# 🔹 Preprocess function
 def preprocess_image(image, label):
     image = tf.image.resize(image, (32, 32))  # Resize (if needed)
     image = tf.cast(image, tf.float32) / 255.0  # Normalize [0,1]
     return image, label
 
-# 🔹 Apply preprocessing
 train_data = train_data.map(preprocess_image).batch(128).shuffle(10000)
 test_data = test_data.map(preprocess_image).batch(128)
 
-# 🔹 Display a sample image
 plt.imshow(next(iter(train_data))[0][0])
 plt.axis('off')
 plt.show()
 
-# 🔹 VAE Model Parameters
 original_dim = (32, 32, 3)  # CIFAR-10 image size
 latent_dim = 10  # Latent space size
 
-# 🔹 Build Encoder
 inputs = layers.Input(shape=original_dim)
 x = layers.Conv2D(32, (3, 3), activation='relu', strides=2, padding='same')(inputs)
 x = layers.Conv2D(64, (3, 3), activation='relu', strides=2, padding='same')(x)
@@ -35,11 +29,9 @@ x = layers.Conv2D(128, (3, 3), activation='relu', strides=2, padding='same')(x)
 x = layers.Flatten()(x)
 x = layers.Dense(128, activation='relu')(x)
 
-# 🔹 Latent space
 z_mean = layers.Dense(latent_dim)(x)
 z_log_var = layers.Dense(latent_dim)(x)
 
-# 🔹 Sampling layer
 def sampling(args):
     z_mean, z_log_var = args
     epsilon = tf.keras.backend.random_normal(shape=(tf.shape(z_mean)[0], latent_dim))
@@ -47,7 +39,6 @@ def sampling(args):
 
 z = layers.Lambda(sampling, output_shape=(latent_dim,))([z_mean, z_log_var])
 
-# 🔹 Decoder
 latent_inputs = layers.Input(shape=(latent_dim,))
 x = layers.Dense(4 * 4 * 128, activation='relu')(latent_inputs)
 x = layers.Reshape((4, 4, 128))(x)
@@ -56,24 +47,16 @@ x = layers.Conv2DTranspose(64, (3, 3), activation='relu', strides=2, padding='sa
 x = layers.Conv2DTranspose(32, (3, 3), activation='relu', strides=2, padding='same')(x)
 decoded = layers.Conv2DTranspose(3, (3, 3), activation='sigmoid', padding='same')(x)
 
-# 🔹 Define VAE model
 vae = models.Model(inputs, decoded)
 
-# 🔹 VAE Loss
 xent_loss = tf.reduce_mean(tf.reduce_sum(tf.keras.losses.binary_crossentropy(inputs, decoded), axis=(1, 2)))
 kl_loss = -0.5 * tf.reduce_mean(tf.reduce_sum(1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var), axis=1))
 vae_loss = xent_loss + kl_loss
 
 vae.add_loss(vae_loss)
 vae.compile(optimizer='adam')
-
-# 🔹 Train VAE
 vae.fit(train_data, epochs=10, validation_data=test_data)
-
-# 🔹 Create Generator Model
 decoder = models.Model(latent_inputs, decoded)
-
-# 🔹 Generate New Images
 def generate_images(n=10):
     random_latent_vectors = np.random.normal(size=(n, latent_dim))
     generated_images = decoder.predict(random_latent_vectors)
@@ -87,10 +70,7 @@ def generate_images(n=10):
 
 generate_images(n=10)  # Generate 10 new images
 
-# 🔹 Encoder Model
 encoder = models.Model(inputs, z_mean)
-
-# 🔹 Visualize 2D Latent Space
 latent_representations = encoder.predict(test_data.map(lambda x, y: x))
 
 plt.figure(figsize=(8, 6))
